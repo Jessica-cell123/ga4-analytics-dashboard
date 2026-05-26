@@ -142,6 +142,17 @@ tr:hover td { background: rgba(79,140,255,.04); }
 .insight h4 { font-size: 14px; }
 .insight p { font-size: 13px; color: var(--text2); line-height: 1.5; }
 
+/* Setup overlay */
+.setup-overlay {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg); z-index: 1000; overflow-y: auto;
+  padding: 40px 20px;
+}
+.setup-overlay.show { display: block; }
+.setup-overlay .setup-container { max-width: 680px; margin: 0 auto; }
+.setup-overlay .card { padding: 32px; margin-bottom: 16px; }
+
 /* Upload zone */
 .upload-zone {
   border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px;
@@ -243,120 +254,7 @@ tr:hover td { background: rgba(79,140,255,.04); }
   <!-- Main Content -->
   <main class="main">
 
-    <!-- ============ PAGE: SETUP ============ -->
-    <div class="page active" id="page-setup">
-      <div class="setup-container">
-        <div class="step-indicators" id="stepIndicators">
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-        </div>
-
-        <!-- Step 1 -->
-        <div class="setup-step active" data-step="1">
-          <div class="card">
-            <h2>🔍 找到你的 GA4 属性 ID</h2>
-            <p>GA4 属性 ID 是你的 Google Analytics 4 账号标识，格式如 <strong>123456789</strong>。</p>
-            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-              <li>打开 <strong><a href="https://analytics.google.com" target="_blank" style="color:var(--primary)">Google Analytics</a></strong></li>
-              <li>点击左下角 <strong>齿轮图标 ⚙️（管理）</strong></li>
-              <li>在「属性」列中，第一行就是 <strong>属性 ID</strong>（格式：UA-xxxxx 或 数字）</li>
-              <li>复制这个数字备用</li>
-            </ol>
-            <div class="form-group">
-              <label>GA4 属性 ID</label>
-              <input type="text" id="ga4PropertyId" placeholder="例如：123456789">
-            </div>
-            <div class="btn-group">
-              <button class="btn btn-primary" onclick="nextStep()">下一步</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="setup-step" data-step="2">
-          <div class="card">
-            <h2>☁️ 创建 Google Cloud 项目</h2>
-            <p>需要创建一个 Google Cloud 项目来开启数据接口。</p>
-            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-              <li>打开 <strong><a href="https://console.cloud.google.com/projectcreate" target="_blank" style="color:var(--primary)">Google Cloud Console</a></strong></li>
-              <li>给你的项目起个名字（如 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">GA4 数据分析</code>）</li>
-              <li>点击「创建」</li>
-            </ol>
-            <div class="btn-group">
-              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-              <button class="btn btn-primary" onclick="nextStep()">我已创建，下一步</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="setup-step" data-step="3">
-          <div class="card">
-            <h2>🔑 启用 API 并创建凭据</h2>
-            <p>在你的 Google Cloud 项目中开启以下两个 API：</p>
-            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-              <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank" style="color:var(--primary)">Google Analytics Data API</a></strong> → 点击「启用」</li>
-              <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com" target="_blank" style="color:var(--primary)">Google Search Console API</a></strong> → 点击「启用」</li>
-            </ol>
-            <p style="color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:12px;">然后创建 OAuth 凭据：</p>
-            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-              <li>进入 <strong><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary)">凭据页面</a></strong></li>
-              <li>点击「<strong>创建凭据</strong>」→「<strong>OAuth 客户端 ID</strong>」</li>
-              <li>应用类型选择「<strong>Web 应用</strong>」</li>
-              <li>名称填任意名字</li>
-              <li>「<strong>已授权的 JavaScript 来源</strong>」填：<code style="background:var(--bg3);padding:2px 6px;border-radius:4px;word-break:break-all;" id="originDisplay"></code></li>
-              <li>点击「创建」，会弹出一个对话框显示你的 <strong>Client ID</strong></li>
-              <li>复制那个 Client ID（以 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">.apps.googleusercontent.com</code> 结尾）</li>
-            </ol>
-            <div class="form-group">
-              <label>OAuth Client ID</label>
-              <input type="text" id="oauthClientId" placeholder="xxx.apps.googleusercontent.com">
-            </div>
-            <div class="btn-group">
-              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-              <button class="btn btn-primary" onclick="nextStep()">下一步</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 4 -->
-        <div class="setup-step" data-step="4">
-          <div class="card">
-            <h2>🔗 连接你的 Google 账号</h2>
-            <p>点击下方按钮，授权此工具访问你的 GA4 和 Search Console 数据。</p>
-            <div id="gSignInWrapper" style="margin: 24px 0;"></div>
-            <div id="authStatus" style="display:none;padding:16px;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.2);border-radius:var(--radius-sm);margin-bottom:16px;">
-              <span style="color:var(--accent);font-weight:600;">✅ 已登录</span>
-              <span id="authEmail" style="color:var(--text2);margin-left:8px;"></span>
-            </div>
-            <div class="form-group">
-              <label>GSC 网站地址（Search Console 已验证的域名）</label>
-              <input type="text" id="gscSiteUrl" placeholder="sc-domain:example.com 或 https://example.com/">
-              <div style="font-size:12px;color:var(--text3);margin-top:4px;">在 Search Console 设置 > 已备案的资源 中查看</div>
-            </div>
-            <div class="btn-group">
-              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-              <button class="btn btn-primary" onclick="finishSetup()">完成设置，进入仪表盘</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 5 -->
-        <div class="setup-step" data-step="5">
-          <div class="card" style="text-align:center;">
-            <div style="font-size:48px;margin-bottom:16px;">🎉</div>
-            <h2>设置完成！</h2>
-            <p>你的配置已保存，现在可以开始分析数据了。</p>
-            <div class="btn-group" style="justify-content:center;">
-              <button class="btn btn-primary" onclick="enterDashboard()">进入仪表盘 →</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- ============ PAGE: OVERVIEW ============ -->
 
     <!-- ============ PAGE: OVERVIEW ============ -->
     <div class="page" id="page-overview">
@@ -482,6 +380,121 @@ tr:hover td { background: rgba(79,140,255,.04); }
   </main>
 </div>
 
+<!-- ============ SETUP OVERLAY ============ -->
+<div class="setup-overlay show" id="setupOverlay">
+  <div class="setup-container">
+    <div class="step-indicators" id="stepIndicators">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="setup-step active" data-step="1">
+      <div class="card">
+        <h2>🔍 找到你的 GA4 属性 ID</h2>
+        <p>GA4 属性 ID 是你的 Google Analytics 4 账号标识，格式如 <strong>123456789</strong>。</p>
+        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+          <li>打开 <strong><a href="https://analytics.google.com" target="_blank" style="color:var(--primary)">Google Analytics</a></strong></li>
+          <li>点击左下角 <strong>齿轮图标 ⚙️（管理）</strong></li>
+          <li>在「属性」列中，第一行就是 <strong>属性 ID</strong>（格式：UA-xxxxx 或 数字）</li>
+          <li>复制这个数字备用</li>
+        </ol>
+        <div class="form-group">
+          <label>GA4 属性 ID</label>
+          <input type="text" id="ga4PropertyId" placeholder="例如：123456789">
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="setup-step" data-step="2">
+      <div class="card">
+        <h2>☁️ 创建 Google Cloud 项目</h2>
+        <p>需要创建一个 Google Cloud 项目来开启数据接口。</p>
+        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+          <li>打开 <strong><a href="https://console.cloud.google.com/projectcreate" target="_blank" style="color:var(--primary)">Google Cloud Console</a></strong></li>
+          <li>给你的项目起个名字（如 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">GA4 数据分析</code>）</li>
+          <li>点击「创建」</li>
+        </ol>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+          <button class="btn btn-primary" onclick="nextStep()">我已创建，下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="setup-step" data-step="3">
+      <div class="card">
+        <h2>🔑 启用 API 并创建凭据</h2>
+        <p>在你的 Google Cloud 项目中开启以下两个 API：</p>
+        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+          <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank" style="color:var(--primary)">Google Analytics Data API</a></strong> → 点击「启用」</li>
+          <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com" target="_blank" style="color:var(--primary)">Google Search Console API</a></strong> → 点击「启用」</li>
+        </ol>
+        <p style="color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:12px;">然后创建 OAuth 凭据：</p>
+        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+          <li>进入 <strong><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary)">凭据页面</a></strong></li>
+          <li>点击「<strong>创建凭据</strong>」→「<strong>OAuth 客户端 ID</strong>」</li>
+          <li>应用类型选择「<strong>Web 应用</strong>」</li>
+          <li>名称填任意名字</li>
+          <li>「<strong>已授权的 JavaScript 来源</strong>」填：<code style="background:var(--bg3);padding:2px 6px;border-radius:4px;word-break:break-all;" id="originDisplay"></code></li>
+          <li>点击「创建」，会弹出一个对话框显示你的 <strong>Client ID</strong></li>
+          <li>复制那个 Client ID（以 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">.apps.googleusercontent.com</code> 结尾）</li>
+        </ol>
+        <div class="form-group">
+          <label>OAuth Client ID</label>
+          <input type="text" id="oauthClientId" placeholder="xxx.apps.googleusercontent.com">
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+          <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="setup-step" data-step="4">
+      <div class="card">
+        <h2>🔗 连接你的 Google 账号</h2>
+        <p>点击下方按钮，授权此工具访问你的 GA4 和 Search Console 数据。</p>
+        <div id="gSignInWrapper" style="margin: 24px 0;"></div>
+        <div id="authStatus" style="display:none;padding:16px;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.2);border-radius:var(--radius-sm);margin-bottom:16px;">
+          <span style="color:var(--accent);font-weight:600;">✅ 已登录</span>
+          <span id="authEmail" style="color:var(--text2);margin-left:8px;"></span>
+        </div>
+        <div class="form-group">
+          <label>GSC 网站地址（Search Console 已验证的域名）</label>
+          <input type="text" id="gscSiteUrl" placeholder="sc-domain:example.com 或 https://example.com/">
+          <div style="font-size:12px;color:var(--text3);margin-top:4px;">在 Search Console 设置 > 已备案的资源 中查看</div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+          <button class="btn btn-primary" onclick="finishSetup()">完成设置，进入仪表盘</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="setup-step" data-step="5">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">🎉</div>
+        <h2>设置完成！</h2>
+        <p>你的配置已保存，现在可以开始分析数据了。</p>
+        <div class="btn-group" style="justify-content:center;">
+          <button class="btn btn-primary" onclick="enterDashboard()">进入仪表盘 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ======================= CONFIG =======================
 const CONFIG = {
@@ -536,6 +549,7 @@ function finishSetup() {
 
 function enterDashboard() {
   CONFIG.setSetupDone(true);
+  document.getElementById('setupOverlay').classList.remove('show');
   initApp();
 }
 
@@ -1300,12 +1314,14 @@ function initApp() {
 // Initialize app
 function bootApp() {
   if (CONFIG.getSetupDone()) {
+    document.getElementById('setupOverlay').classList.remove('show');
     initApp();
   } else {
+    document.getElementById('setupOverlay').classList.add('show');
     updateStepUI();
     const originEl = document.getElementById('originDisplay');
     if (originEl) originEl.textContent = window.location.origin;
-    initOAuth();
+    setTimeout(initOAuth, 500);
   }
 }
 if (document.readyState === 'loading') {
