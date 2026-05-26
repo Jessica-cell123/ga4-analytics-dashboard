@@ -434,8 +434,9 @@ tr:hover td { background: rgba(79,140,255,.04); }
         <input type="text" id="oauthClientId" placeholder="OAuth Client ID（可留空）">
       </div>
 
-      <div class="btn-group" style="justify-content:center;">
+      <div class="btn-group" style="justify-content:center;flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="finishSetup()" style="padding:12px 32px;">✅ 保存配置，进入仪表盘</button>
+        <button class="btn btn-outline" onclick="runDiagnostics()" style="padding:12px 20px;">🔍 诊断连接</button>
       </div>
     </div>
   </div>
@@ -606,9 +607,10 @@ async function fetchGA4(requestBody) {
       });
       const data = await r.json();
       if (data.status === 'ok') return data.data;
+      showError('GA4 数据错误: ' + (data.message || '未知错误'));
       return null;
     } catch(e) {
-      console.error('Apps Script proxy error:', e);
+      showError('Apps Script 连接错误: ' + e.message);
       return null;
     }
   }
@@ -679,9 +681,10 @@ async function fetchGSC(requestBody) {
       });
       const data = await r.json();
       if (data.status === 'ok') return data.data;
+      showError('GSC 数据错误: ' + (data.message || '未知错误'));
       return null;
     } catch(e) {
-      console.error('Apps Script proxy error:', e);
+      showError('Apps Script 连接错误: ' + e.message);
       return null;
     }
   }
@@ -1242,6 +1245,49 @@ function exportReport() {
 }
 
 // ======================= UTILITIES =======================
+
+function showError(msg) {
+  const el = document.getElementById('errorDisplay') || (function(){
+    const d = document.createElement('div');
+    d.id = 'errorDisplay';
+    d.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#ef4444;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;max-width:500px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,.3);';
+    document.body.appendChild(d);
+    return d;
+  })();
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 8000);
+}
+
+async function runDiagnostics() {
+  const url = CONFIG.getAppsScriptUrl();
+  const propId = CONFIG.getPropertyId() || document.getElementById('ga4PropertyId').value.trim();
+  const siteUrl = CONFIG.getGscSite() || document.getElementById('gscSiteUrl').value.trim();
+  if (!url) return showError('请先配置 Apps Script 后端地址');
+  showError('🔄 正在诊断，请稍候...');
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'diagnose',
+        params: { propertyId: propId, siteUrl: siteUrl }
+      })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const checks = d.data.checks;
+      let msg = '';
+      if (checks.ga4) msg += 'GA4: ' + (checks.ga4.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.ga4.body || checks.ga4.error)) + ' | ';
+      if (checks.gsc) msg += 'GSC: ' + (checks.gsc.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.gsc.body || checks.gsc.error));
+      showError(msg);
+    } else {
+      showError('❌ 诊断失败: ' + (d.message || JSON.stringify(d)));
+    }
+  } catch(e) {
+    showError('❌ 无法连接: ' + e.message);
+  }
+}
 function chartOptions() {
   return {
     responsive: true,
