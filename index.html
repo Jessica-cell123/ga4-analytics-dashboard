@@ -495,7 +495,7 @@ function finishSetup() {
 
 async function testAppsScriptConnection(url) {
   try {
-    const resp = await iframeCall(url, { action: 'ping' });
+    const resp = await proxyCall(url, { action: 'ping' });
     if (resp.status === 'ok') {
       document.getElementById('setupOverlay').classList.remove('show');
       CONFIG.setSetupDone(true);
@@ -595,7 +595,7 @@ async function fetchGA4(requestBody) {
 
   if (appsScriptUrl) {
     try {
-      const resp = await iframeCall(appsScriptUrl, {
+      const resp = await proxyCall(appsScriptUrl, {
         action: 'fetchGA4',
         propertyId: propertyId,
         body: JSON.stringify(requestBody)
@@ -652,7 +652,7 @@ async function fetchGSC(requestBody) {
 
   if (appsScriptUrl) {
     try {
-      const resp = await iframeCall(appsScriptUrl, {
+      const resp = await proxyCall(appsScriptUrl, {
         action: 'fetchGSC',
         siteUrl: siteUrl,
         body: JSON.stringify(requestBody)
@@ -1213,57 +1213,31 @@ function exportReport() {
   URL.revokeObjectURL(a.href);
 }
 
-// ======================= IFRAME POSTMESSAGE UTILITY =======================
+// ======================= CORS PROXY UTILITY =======================
 
-let iframeIdCounter = 0;
-const iframePromises = {};
+const DEFAULT_PROXY = 'https://api.allorigins.win/raw?url=';
 
-function iframeCall(url, params) {
-  return new Promise((resolve, reject) => {
-    const id = 'if' + (++iframeIdCounter);
-    params.id = id;
-    const sep = url.includes('?') ? '&' : '?';
-    const parts = [];
-    for (const k in params) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
-    const fullUrl = url + sep + parts.join('&');
+async function proxyCall(url, params) {
+  const sep = url.includes('?') ? '&' : '?';
+  const parts = [];
+  for (const k in params) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+  const fullUrl = url + sep + parts.join('&');
+  const proxyUrl = DEFAULT_PROXY + encodeURIComponent(fullUrl);
 
-    iframePromises[id] = { resolve, reject };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = fullUrl;
-
-    const timeout = setTimeout(() => {
-      if (iframePromises[id]) {
-        delete iframePromises[id];
-        if (iframe.parentNode) document.body.removeChild(iframe);
-        reject(new Error('请求超时'));
-      }
-    }, 20000);
-
-    iframe.onload = function() {
-      // Will be resolved by message listener
-    };
-
-    document.body.appendChild(iframe);
-
-    // Store iframe reference for cleanup
-    iframePromises[id].iframe = iframe;
-    iframePromises[id].timeout = timeout;
-  });
+  try {
+    const r = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error('请求超时');
+    throw e;
+  }
 }
-
-// Listen for postMessage from Apps Script iframes
-window.addEventListener('message', function(e) {
-  const data = e.data;
-  if (!data || !data.id || !iframePromises[data.id]) return;
-  const p = iframePromises[data.id];
-  clearTimeout(p.timeout);
-  delete iframePromises[data.id];
-  if (p.iframe && p.iframe.parentNode) document.body.removeChild(p.iframe);
-  if (data.status === 'ok') p.resolve(data);
-  else p.reject(new Error(data.message || '未知错误'));
-});
 
 // ======================= UTILITIES =======================
 
@@ -1287,7 +1261,7 @@ async function runDiagnostics() {
   if (!url) return showError('请先配置 Apps Script 后端地址');
   showError('🔄 正在诊断，请稍候...');
   try {
-    const resp = await iframeCall(url, { action: 'diagnose', propertyId: propId, siteUrl: siteUrl });
+    const resp = await proxyCall(url, { action: 'diagnose', propertyId: propId, siteUrl: siteUrl });
     if (resp.status === 'ok') {
       const checks = resp.data.checks;
       let msg = '';
