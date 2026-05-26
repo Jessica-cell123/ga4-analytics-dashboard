@@ -495,18 +495,17 @@ function finishSetup() {
 
 async function testAppsScriptConnection(url) {
   try {
-    const r = await fetch(url, { method: 'GET' });
-    const data = await r.json();
+    const data = await jsonpCall(url, { action: 'ping' });
     if (data.status === 'ok') {
       document.getElementById('setupOverlay').classList.remove('show');
       CONFIG.setSetupDone(true);
       initApp();
       if (currentPage !== 'setup') refreshAll();
     } else {
-      alert('Apps Script 连接测试失败，请检查 URL 是否正确');
+      alert('Apps Script 返回错误: ' + (data.message || '未知错误'));
     }
   } catch(e) {
-    alert('无法连接到 Apps Script 后端，请检查 URL 是否正确');
+    alert('无法连接到 Apps Script 后端: ' + e.message);
   }
 }
 
@@ -594,48 +593,32 @@ async function fetchGA4(requestBody) {
   const dr = getDateRange();
   const appsScriptUrl = CONFIG.getAppsScriptUrl();
 
-  // Try Apps Script proxy first
   if (appsScriptUrl) {
     try {
-      const r = await fetch(appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'fetchGA4',
-          params: { propertyId, startDate: dr.startDate, endDate: dr.endDate, requestBody }
-        })
+      const data = await jsonpCall(appsScriptUrl, {
+        action: 'fetchGA4',
+        propertyId: propertyId,
+        body: JSON.stringify(requestBody)
       });
-      const data = await r.json();
       if (data.status === 'ok') return data.data;
-      showError('GA4 数据错误: ' + (data.message || '未知错误'));
+      showError('GA4: ' + (data.message || '错误'));
       return null;
     } catch(e) {
-      showError('Apps Script 连接错误: ' + e.message);
+      showError('Apps Script: ' + e.message);
       return null;
     }
   }
 
-  // Fallback: direct OAuth
   if (!propertyId || !accessToken) return null;
   try {
     const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
     });
-    if (!r.ok) {
-      const err = await r.json();
-      console.error('GA4 API Error:', err);
-      return null;
-    }
+    if (!r.ok) { console.error('GA4 API Error:', await r.json()); return null; }
     return await r.json();
-  } catch(e) {
-    console.error('GA4 fetch error:', e);
-    return null;
-  }
+  } catch(e) { console.error('GA4 fetch error:', e); return null; }
 }
 
 function parseGA4Response(resp) {
@@ -668,44 +651,32 @@ async function fetchGSC(requestBody) {
   const dr = getDateRange();
   const appsScriptUrl = CONFIG.getAppsScriptUrl();
 
-  // Try Apps Script proxy first
   if (appsScriptUrl) {
     try {
-      const r = await fetch(appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'fetchGSC',
-          params: { siteUrl, startDate: dr.startDate, endDate: dr.endDate, requestBody }
-        })
+      const data = await jsonpCall(appsScriptUrl, {
+        action: 'fetchGSC',
+        siteUrl: siteUrl,
+        body: JSON.stringify(requestBody)
       });
-      const data = await r.json();
       if (data.status === 'ok') return data.data;
-      showError('GSC 数据错误: ' + (data.message || '未知错误'));
+      showError('GSC: ' + (data.message || '错误'));
       return null;
     } catch(e) {
-      showError('Apps Script 连接错误: ' + e.message);
+      showError('Apps Script: ' + e.message);
       return null;
     }
   }
 
-  // Fallback: direct OAuth
   if (!siteUrl || !accessToken) return null;
   try {
     const r = await fetch(`https://searchconsole.googleapis.com/v1/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
     });
     if (!r.ok) return null;
     return await r.json();
-  } catch(e) {
-    console.error('GSC fetch error:', e);
-    return null;
-  }
+  } catch(e) { console.error('GSC fetch error:', e); return null; }
 }
 
 // ======================= DASHBOARD: OVERVIEW =======================
@@ -1244,13 +1215,45 @@ function exportReport() {
   URL.revokeObjectURL(a.href);
 }
 
+// ======================= JSONP UTILITY =======================
+
+let jsonpCounter = 0;
+
+function jsonpCall(url, params) {
+  return new Promise((resolve, reject) => {
+    const callbackName = '_jsonp' + (++jsonpCounter);
+    const separator = url.includes('?') ? '&' : '?';
+    const queryParts = [];
+    for (const key in params) {
+      queryParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+    }
+    queryParts.push('callback=' + callbackName);
+    const fullUrl = url + separator + queryParts.join('&');
+
+    window[callbackName] = function(data) {
+      delete window[callbackName];
+      document.head.removeChild(script);
+      resolve(data);
+    };
+
+    const script = document.createElement('script');
+    script.src = fullUrl;
+    script.onerror = function() {
+      delete window[callbackName];
+      document.head.removeChild(script);
+      reject(new Error('JSONP 请求失败'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
 // ======================= UTILITIES =======================
 
 function showError(msg) {
   const el = document.getElementById('errorDisplay') || (function(){
     const d = document.createElement('div');
     d.id = 'errorDisplay';
-    d.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#ef4444;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;max-width:500px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,.3);';
+    d.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#ef4444;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;max-width:500px;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:10000;font-family:sans-serif;';
     document.body.appendChild(d);
     return d;
   })();
@@ -1266,21 +1269,13 @@ async function runDiagnostics() {
   if (!url) return showError('请先配置 Apps Script 后端地址');
   showError('🔄 正在诊断，请稍候...');
   try {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'diagnose',
-        params: { propertyId: propId, siteUrl: siteUrl }
-      })
-    });
-    const d = await r.json();
+    const d = await jsonpCall(url, { action: 'diagnose', propertyId: propId, siteUrl: siteUrl });
     if (d.status === 'ok') {
       const checks = d.data.checks;
       let msg = '';
-      if (checks.ga4) msg += 'GA4: ' + (checks.ga4.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.ga4.body || checks.ga4.error)) + ' | ';
-      if (checks.gsc) msg += 'GSC: ' + (checks.gsc.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.gsc.body || checks.gsc.error));
-      showError(msg);
+      if (checks.ga4) msg += 'GA4: ' + (checks.ga4.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.ga4.body || checks.ga4.error));
+      if (checks.gsc) msg += ' | GSC: ' + (checks.gsc.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.gsc.body || checks.gsc.error));
+      showError(msg || '✅ 诊断完成，但未检测到数据');
     } else {
       showError('❌ 诊断失败: ' + (d.message || JSON.stringify(d)));
     }

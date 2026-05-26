@@ -1,94 +1,84 @@
-function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({status:'ok',message:'GA4后端运行中'}))
-    .setMimeType(ContentService.MimeType.JSON);
+function doGet(e) {
+  return handleRequest(e, true);
 }
 
 function doPost(e) {
+  return handleRequest(e, false);
+}
+
+function handleRequest(e, isGet) {
   try {
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action || '';
-    const p = data.params || {};
-    const token = ScriptApp.getOAuthToken();
+    var p = isGet ? e.parameter : JSON.parse(e.postData.contents);
+    var action = p.action || '';
+    var cb = p.callback || '';
+    var token = ScriptApp.getOAuthToken();
+    var result;
     
     if (action === 'fetchGA4') {
-      return handleGA4(p, token);
+      result = fetchGA4_(p, token);
+    } else if (action === 'fetchGSC') {
+      result = fetchGSC_(p, token);
+    } else if (action === 'diagnose') {
+      result = diagnose_(p, token);
+    } else if (action === 'ping') {
+      result = {status:'ok',message:'GA4后端运行中'};
+    } else {
+      return ContentService.createTextOutput(
+        JSON.stringify({status:'error',message:'未知操作: '+action})
+      ).setMimeType(ContentService.MimeType.JSON);
     }
-    if (action === 'fetchGSC') {
-      return handleGSC(p, token);
-    }
-    if (action === 'diagnose') {
-      return handleDiagnose(p, token);
-    }
-    throw new Error('未知操作: ' + action);
+    
+    var json = JSON.stringify({status:'ok',data:result});
+    var output = cb ? cb + '(' + json + ')' : json;
+    return ContentService.createTextOutput(output)
+      .setMimeType(cb ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput(
-      JSON.stringify({status:'error',message:err.message + '\n' + (err.stack||'')})
-    ).setMimeType(ContentService.MimeType.JSON);
+    var json = JSON.stringify({status:'error',message:err.message});
+    var output = (p?p.callback:'') ? (p.callback+'('+json+')') : json;
+    return ContentService.createTextOutput(output)
+      .setMimeType((p&&p.callback) ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
   }
 }
 
-function handleGA4(p, token) {
-  const q = p.requestBody || {};
-  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${p.propertyId}:runReport`;
-  const res = UrlFetchApp.fetch(url, {
-    method:'POST',
-    headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
-    payload:JSON.stringify(q),
-    muteHttpExceptions:true
+function fetchGA4_(p, token) {
+  var q = JSON.parse(p.body || '{}');
+  var url = 'https://analyticsdata.googleapis.com/v1beta/properties/' + p.propertyId + ':runReport';
+  var r = UrlFetchApp.fetch(url, {
+    method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
+    payload:JSON.stringify(q), muteHttpExceptions:true
   });
-  const code = res.getResponseCode();
-  if (code !== 200) throw new Error('GA4('+code+'): '+res.getContentText().slice(0,500));
-  return ContentService.createTextOutput(
-    JSON.stringify({status:'ok',data:JSON.parse(res.getContentText())})
-  ).setMimeType(ContentService.MimeType.JSON);
+  if (r.getResponseCode() !== 200) throw new Error('GA4('+r.getResponseCode()+'): '+r.getContentText().slice(0,300));
+  return JSON.parse(r.getContentText());
 }
 
-function handleGSC(p, token) {
-  const q = p.requestBody || {};
-  const url = `https://searchconsole.googleapis.com/v1/sites/${encodeURIComponent(p.siteUrl)}/searchAnalytics/query`;
-  const res = UrlFetchApp.fetch(url, {
-    method:'POST',
-    headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
-    payload:JSON.stringify(q),
-    muteHttpExceptions:true
+function fetchGSC_(p, token) {
+  var q = JSON.parse(p.body || '{}');
+  var url = 'https://searchconsole.googleapis.com/v1/sites/' + encodeURIComponent(p.siteUrl) + '/searchAnalytics/query';
+  var r = UrlFetchApp.fetch(url, {
+    method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
+    payload:JSON.stringify(q), muteHttpExceptions:true
   });
-  const code = res.getResponseCode();
-  if (code !== 200) throw new Error('GSC('+code+'): '+res.getContentText().slice(0,500));
-  return ContentService.createTextOutput(
-    JSON.stringify({status:'ok',data:JSON.parse(res.getContentText())})
-  ).setMimeType(ContentService.MimeType.JSON);
+  if (r.getResponseCode() !== 200) throw new Error('GSC('+r.getResponseCode()+'): '+r.getContentText().slice(0,300));
+  return JSON.parse(r.getContentText());
 }
 
-function handleDiagnose(p, token) {
-  const result = {checks:{}};
-  
-  // Test GA4
+function diagnose_(p, token) {
+  var r = {checks:{}};
   if (p.propertyId) {
     try {
-      const url = `https://analyticsdata.googleapis.com/v1beta/properties/${p.propertyId}:runReport`;
-      const body = {dateRanges:[{startDate:'30daysAgo',endDate:'today'}],metrics:[{name:'sessions'}],limit:1};
-      const r = UrlFetchApp.fetch(url, {
-        method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
-        payload:JSON.stringify(body), muteHttpExceptions:true
-      });
-      result.checks.ga4 = {status: r.getResponseCode()===200 ? 'ok' : 'error', code: r.getResponseCode(), body: r.getContentText().slice(0,200)};
-    } catch(e) { result.checks.ga4 = {status:'error', error: e.message}; }
+      var url = 'https://analyticsdata.googleapis.com/v1beta/properties/' + p.propertyId + ':runReport';
+      var body = {dateRanges:[{startDate:'30daysAgo',endDate:'today'}],metrics:[{name:'sessions'}],limit:1};
+      var resp = UrlFetchApp.fetch(url, {method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'}, payload:JSON.stringify(body), muteHttpExceptions:true});
+      r.checks.ga4 = {status: resp.getResponseCode()===200 ? 'ok' : 'error', body: resp.getContentText().slice(0,300)};
+    } catch(e) {r.checks.ga4 = {status:'error', error: e.message};}
   }
-  
-  // Test GSC
   if (p.siteUrl) {
     try {
-      const url = `https://searchconsole.googleapis.com/v1/sites/${encodeURIComponent(p.siteUrl)}/searchAnalytics/query`;
-      const body = {startDate:'30daysAgo',endDate:'today',dimensions:['query'],rowLimit:1};
-      const r = UrlFetchApp.fetch(url, {
-        method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'},
-        payload:JSON.stringify(body), muteHttpExceptions:true
-      });
-      result.checks.gsc = {status: r.getResponseCode()===200 ? 'ok' : 'error', code: r.getResponseCode(), body: r.getContentText().slice(0,200)};
-    } catch(e) { result.checks.gsc = {status:'error', error: e.message}; }
+      var url = 'https://searchconsole.googleapis.com/v1/sites/' + encodeURIComponent(p.siteUrl) + '/searchAnalytics/query';
+      var body = {startDate:'30daysAgo',endDate:'today',dimensions:['query'],rowLimit:1};
+      var resp = UrlFetchApp.fetch(url, {method:'POST', headers:{Authorization:'Bearer '+token, 'Content-Type':'application/json'}, payload:JSON.stringify(body), muteHttpExceptions:true});
+      r.checks.gsc = {status: resp.getResponseCode()===200 ? 'ok' : 'error', body: resp.getContentText().slice(0,300)};
+    } catch(e) {r.checks.gsc = {status:'error', error: e.message};}
   }
-  
-  return ContentService.createTextOutput(
-    JSON.stringify({status:'ok',data:result})
-  ).setMimeType(ContentService.MimeType.JSON);
+  return r;
 }
