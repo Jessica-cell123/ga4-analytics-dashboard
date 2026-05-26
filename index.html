@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GA4 数据分析仪表盘</title>
+<script src="https://accounts.google.com/gsi/client"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c16;
+  --bg2: #0e1526;
+  --bg3: #172032;
+  --card: #111b2e;
+  --border: #1e2a45;
+  --text: #e8edf5;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --primary: #4f8cff;
+  --primary-dim: #2a5bbf;
+  --accent: #22d3a0;
+  --accent2: #f59e0b;
+  --danger: #ef4444;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+h1,h2,h3,h4,h5 { font-family: 'Sora', sans-serif; font-weight: 600; }
+.app { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 240px; background: var(--bg2); border-right: 1px solid var(--border);
+  padding: 24px 16px; display: flex; flex-direction: column; flex-shrink: 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar .logo { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 32px; display: flex; align-items: center; gap: 10px; }
+.sidebar .logo span { color: var(--primary); }
+.sidebar .logo svg { width: 28px; height: 28px; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all .2s;
+  color: var(--text2); font-size: 14px; font-weight: 500; margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: var(--primary); color: #fff; }
+.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.nav-divider { height: 1px; background: var(--border); margin: 12px 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; }
+.user-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--bg3); font-size: 13px; color: var(--text2); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+.status-dot.online { background: var(--accent); }
+
+/* Main */
+.main { flex: 1; padding: 32px; max-width: 1400px; overflow-y: auto; }
+.page { display: none; }
+.page.active { display: block; animation: fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 26px; margin-bottom: 6px; }
+.page-header p { color: var(--text2); font-size: 14px; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.card-label { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.card-value { font-size: 28px; font-weight: 700; font-family: 'Sora', sans-serif; }
+.card-change { font-size: 13px; margin-top: 4px; }
+.card-change.up { color: var(--accent); }
+.card-change.down { color: var(--danger); }
+
+/* Charts */
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-grid .card { padding: 20px; }
+.chart-grid .card h3 { font-size: 14px; color: var(--text2); margin-bottom: 16px; font-weight: 500; }
+.chart-full { grid-column: 1 / -1; }
+.chart-container { position: relative; height: 280px; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 12px; color: var(--text3); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: rgba(79,140,255,.04); }
+
+/* Setup Wizard */
+.setup-container {
+  max-width: 680px; margin: 40px auto;
+}
+.setup-container .card { padding: 32px; margin-bottom: 16px; }
+.setup-step { display: none; }
+.setup-step.active { display: block; }
+.setup-step h2 { font-size: 20px; margin-bottom: 8px; }
+.setup-step p { color: var(--text2); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+.step-indicators { display: flex; gap: 8px; margin-bottom: 32px; justify-content: center; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: all .3s; }
+.step-dot.active { background: var(--primary); width: 28px; border-radius: 5px; }
+.step-dot.done { background: var(--accent); }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text2); }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif;
+  outline: none; transition: border .2s;
+}
+.form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+.form-group input::placeholder { color: var(--text3); }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+  border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer;
+  border: none; font-family: 'DM Sans', sans-serif; transition: all .2s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dim); transform: translateY(-1px); }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+.btn-outline:hover { background: rgba(79,140,255,.1); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; margin-top: 20px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Insight cards */
+.insight { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+.insight-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.insight-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.insight-icon.info { background: rgba(79,140,255,.15); }
+.insight-icon.warning { background: rgba(245,158,11,.15); }
+.insight-icon.success { background: rgba(34,211,160,.15); }
+.insight-icon.danger { background: rgba(239,68,68,.15); }
+.insight h4 { font-size: 14px; }
+.insight p { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px;
+  text-align: center; cursor: pointer; transition: all .3s; margin-bottom: 16px;
+}
+.upload-zone:hover { border-color: var(--primary); background: rgba(79,140,255,.03); }
+.upload-zone.dragover { border-color: var(--accent); background: rgba(34,211,160,.05); }
+.upload-zone svg { width: 40px; height: 40px; color: var(--text3); margin-bottom: 12px; }
+.upload-zone p { color: var(--text2); font-size: 14px; }
+.upload-zone p strong { color: var(--text); }
+
+/* Loading */
+.spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay { display: none; align-items: center; justify-content: center; gap: 12px; padding: 40px; color: var(--text2); }
+.loading-overlay.show { display: flex; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg2); padding: 4px; border-radius: var(--radius-sm); }
+.tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .2s; }
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--card); color: var(--text); }
+
+/* Config saved indicator */
+.config-status { font-size: 12px; margin-top: 4px; }
+.config-status.ok { color: var(--accent); }
+.config-status.missing { color: var(--accent2); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { width: 60px; padding: 16px 8px; }
+  .sidebar .logo span, .sidebar .nav-item span, .sidebar .user-status span { display: none; }
+  .main { padding: 20px; }
+  .chart-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .cards { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Filters */
+.filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.filters label { font-size: 12px; color: var(--text3); }
+.filters select {
+  padding: 6px 10px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none;
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none"><rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2"/><path d="M8 20V12M14 20V8M20 20V16" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Analytics</span>
+    </div>
+    <div class="nav-item active" data-page="overview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>总览</span>
+    </div>
+    <div class="nav-item" data-page="traffic">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>流量分析</span>
+    </div>
+    <div class="nav-item" data-page="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <span>搜索数据</span>
+    </div>
+    <div class="nav-item" data-page="conversion">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span>转化漏斗</span>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-item" data-page="import">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>数据导入</span>
+    </div>
+    <div class="nav-item" data-page="insights">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>策略建议</span>
+    </div>
+    <div class="nav-item" data-page="setup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>
+      <span>设置</span>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-status" id="userStatus">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">未连接</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ============ PAGE: SETUP ============ -->
+    <div class="page active" id="page-setup">
+      <div class="setup-container">
+        <div class="step-indicators" id="stepIndicators">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="setup-step active" data-step="1">
+          <div class="card">
+            <h2>🔍 找到你的 GA4 属性 ID</h2>
+            <p>GA4 属性 ID 是你的 Google Analytics 4 账号标识，格式如 <strong>123456789</strong>。</p>
+            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+              <li>打开 <strong><a href="https://analytics.google.com" target="_blank" style="color:var(--primary)">Google Analytics</a></strong></li>
+              <li>点击左下角 <strong>齿轮图标 ⚙️（管理）</strong></li>
+              <li>在「属性」列中，第一行就是 <strong>属性 ID</strong>（格式：UA-xxxxx 或 数字）</li>
+              <li>复制这个数字备用</li>
+            </ol>
+            <div class="form-group">
+              <label>GA4 属性 ID</label>
+              <input type="text" id="ga4PropertyId" placeholder="例如：123456789">
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="setup-step" data-step="2">
+          <div class="card">
+            <h2>☁️ 创建 Google Cloud 项目</h2>
+            <p>需要创建一个 Google Cloud 项目来开启数据接口。</p>
+            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+              <li>打开 <strong><a href="https://console.cloud.google.com/projectcreate" target="_blank" style="color:var(--primary)">Google Cloud Console</a></strong></li>
+              <li>给你的项目起个名字（如 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">GA4 数据分析</code>）</li>
+              <li>点击「创建」</li>
+            </ol>
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+              <button class="btn btn-primary" onclick="nextStep()">我已创建，下一步</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="setup-step" data-step="3">
+          <div class="card">
+            <h2>🔑 启用 API 并创建凭据</h2>
+            <p>在你的 Google Cloud 项目中开启以下两个 API：</p>
+            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+              <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank" style="color:var(--primary)">Google Analytics Data API</a></strong> → 点击「启用」</li>
+              <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com" target="_blank" style="color:var(--primary)">Google Search Console API</a></strong> → 点击「启用」</li>
+            </ol>
+            <p style="color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:12px;">然后创建 OAuth 凭据：</p>
+            <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
+              <li>进入 <strong><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary)">凭据页面</a></strong></li>
+              <li>点击「<strong>创建凭据</strong>」→「<strong>OAuth 客户端 ID</strong>」</li>
+              <li>应用类型选择「<strong>Web 应用</strong>」</li>
+              <li>名称填任意名字</li>
+              <li>「<strong>已授权的 JavaScript 来源</strong>」填：<code style="background:var(--bg3);padding:2px 6px;border-radius:4px;word-break:break-all;" id="originDisplay"></code></li>
+              <li>点击「创建」，会弹出一个对话框显示你的 <strong>Client ID</strong></li>
+              <li>复制那个 Client ID（以 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">.apps.googleusercontent.com</code> 结尾）</li>
+            </ol>
+            <div class="form-group">
+              <label>OAuth Client ID</label>
+              <input type="text" id="oauthClientId" placeholder="xxx.apps.googleusercontent.com">
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+              <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="setup-step" data-step="4">
+          <div class="card">
+            <h2>🔗 连接你的 Google 账号</h2>
+            <p>点击下方按钮，授权此工具访问你的 GA4 和 Search Console 数据。</p>
+            <div id="gSignInWrapper" style="margin: 24px 0;"></div>
+            <div id="authStatus" style="display:none;padding:16px;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.2);border-radius:var(--radius-sm);margin-bottom:16px;">
+              <span style="color:var(--accent);font-weight:600;">✅ 已登录</span>
+              <span id="authEmail" style="color:var(--text2);margin-left:8px;"></span>
+            </div>
+            <div class="form-group">
+              <label>GSC 网站地址（Search Console 已验证的域名）</label>
+              <input type="text" id="gscSiteUrl" placeholder="sc-domain:example.com 或 https://example.com/">
+              <div style="font-size:12px;color:var(--text3);margin-top:4px;">在 Search Console 设置 > 已备案的资源 中查看</div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
+              <button class="btn btn-primary" onclick="finishSetup()">完成设置，进入仪表盘</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="setup-step" data-step="5">
+          <div class="card" style="text-align:center;">
+            <div style="font-size:48px;margin-bottom:16px;">🎉</div>
+            <h2>设置完成！</h2>
+            <p>你的配置已保存，现在可以开始分析数据了。</p>
+            <div class="btn-group" style="justify-content:center;">
+              <button class="btn btn-primary" onclick="enterDashboard()">进入仪表盘 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PAGE: OVERVIEW ============ -->
+    <div class="page" id="page-overview">
+      <div class="page-header">
+        <h1>总览</h1>
+        <p>核心指标概览 · <span id="overviewDateRange">近 28 天</span></p>
+      </div>
+      <div class="filters">
+        <label>时间范围</label>
+        <select id="dateRange" onchange="refreshAll()">
+          <option value="7">近 7 天</option>
+          <option value="28" selected>近 28 天</option>
+          <option value="90">近 90 天</option>
+        </select>
+      </div>
+      <div class="cards" id="overviewCards">
+        <div class="card"><div class="card-label">总用户</div><div class="card-value" id="ovUsers">—</div></div>
+        <div class="card"><div class="card-label">会话数</div><div class="card-value" id="ovSessions">—</div></div>
+        <div class="card"><div class="card-label">页面浏览量</div><div class="card-value" id="ovPageviews">—</div></div>
+        <div class="card"><div class="card-label">跳出率</div><div class="card-value" id="ovBounce">—</div></div>
+        <div class="card"><div class="card-label">平均会话时长</div><div class="card-value" id="ovDuration">—</div></div>
+        <div class="card"><div class="card-label">转化事件</div><div class="card-value" id="ovConversions">—</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="card chart-full"><h3>用户趋势</h3><div class="chart-container"><canvas id="chartUsers"></canvas></div></div>
+        <div class="card"><h3>流量来源</h3><div class="chart-container"><canvas id="chartSources"></canvas></div></div>
+        <div class="card"><h3>页面排行</h3><div class="chart-container"><canvas id="chartPages"></canvas></div></div>
+      </div>
+      <div class="loading-overlay" id="loadingOverview"><div class="spinner"></div><span>正在加载数据...</span></div>
+    </div>
+
+    <!-- ============ PAGE: TRAFFIC ============ -->
+    <div class="page" id="page-traffic">
+      <div class="page-header"><h1>流量分析</h1><p>渠道来源、趋势与用户行为</p></div>
+      <div class="chart-grid">
+        <div class="card chart-full"><h3>每日用户趋势</h3><div class="chart-container"><canvas id="chartTrafficDaily"></canvas></div></div>
+        <div class="card"><h3>来源/媒介</h3><div class="chart-container"><canvas id="chartSourceMedium"></canvas></div></div>
+        <div class="card"><h3>设备类型</h3><div class="chart-container"><canvas id="chartDevice"></canvas></div></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;color:var(--text2);margin-bottom:12px;">流量来源明细</h3>
+        <div class="table-wrap"><table id="trafficTable"><thead><tr><th>来源</th><th>用户</th><th>会话</th><th>页面浏览量</th><th>跳出率</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="loading-overlay" id="loadingTraffic"><div class="spinner"></div><span>正在加载...</span></div>
+    </div>
+
+    <!-- ============ PAGE: SEARCH ============ -->
+    <div class="page" id="page-search">
+      <div class="page-header"><h1>搜索数据</h1><p>Google Search Console 表现</p></div>
+      <div class="cards">
+        <div class="card"><div class="card-label">总点击</div><div class="card-value" id="gscClicks">—</div></div>
+        <div class="card"><div class="card-label">总展示</div><div class="card-value" id="gscImpressions">—</div></div>
+        <div class="card"><div class="card-label">平均 CTR</div><div class="card-value" id="gscCtr">—</div></div>
+        <div class="card"><div class="card-label">平均排名</div><div class="card-value" id="gscPosition">—</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="card chart-full"><h3>点击与展示趋势</h3><div class="chart-container"><canvas id="chartGscTrend"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="font-size:14px;color:var(--text2);margin-bottom:12px;">热门查询</h3>
+        <div class="table-wrap"><table id="queriesTable"><thead><tr><th>查询词</th><th>点击</th><th>展示</th><th>CTR</th><th>排名</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;color:var(--text2);margin-bottom:12px;">热门页面</h3>
+        <div class="table-wrap"><table id="gscPagesTable"><thead><tr><th>页面</th><th>点击</th><th>展示</th><th>CTR</th><th>排名</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="loading-overlay" id="loadingSearch"><div class="spinner"></div><span>正在加载...</span></div>
+    </div>
+
+    <!-- ============ PAGE: CONVERSION ============ -->
+    <div class="page" id="page-conversion">
+      <div class="page-header"><h1>转化漏斗</h1><p>用户转化路径分析</p></div>
+      <div id="conversionContent">
+        <p style="color:var(--text2);">需要从 GA4 拉取事件数据才能分析转化漏斗。请先在设置中连接并拉取数据。</p>
+      </div>
+      <div class="chart-grid">
+        <div class="card chart-full"><h3>关键事件趋势</h3><div class="chart-container"><canvas id="chartEvents"></canvas></div></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;color:var(--text2);margin-bottom:12px;">事件明细</h3>
+        <div class="table-wrap"><table id="eventsTable"><thead><tr><th>事件名称</th><th>发生次数</th><th>用户数</th><th>占比</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="loading-overlay" id="loadingConversion"><div class="spinner"></div><span>正在加载...</span></div>
+    </div>
+
+    <!-- ============ PAGE: IMPORT ============ -->
+    <div class="page" id="page-import">
+      <div class="page-header"><h1>数据导入</h1><p>导入 Clarity 录制数据、CRM 填单数据等外部 CSV</p></div>
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="font-size:14px;color:var(--text2);margin-bottom:8px;">📄 上传 CSV 文件</h3>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:16px;">支持 Clarity 导出数据、CRM 导出数据等。文件将存储在浏览器本地。</p>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('csvInput').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>点击或拖拽 CSV 文件到此处</p>
+        </div>
+        <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="handleCSV(event)">
+      </div>
+      <div id="importedData" style="display:none;">
+        <div class="card">
+          <h3 style="font-size:14px;color:var(--text2);margin-bottom:12px;">已导入数据 <span id="importedFileName" style="font-weight:400;color:var(--text3);"></span></h3>
+          <div class="table-wrap"><table id="importTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PAGE: INSIGHTS ============ -->
+    <div class="page" id="page-insights">
+      <div class="page-header"><h1>策略建议</h1><p>基于数据的自动化分析建议</p></div>
+      <div class="filters">
+        <label>分析维度</label>
+        <select id="insightFocus" onchange="generateInsights()">
+          <option value="all">全部</option>
+          <option value="traffic">流量</option>
+          <option value="seo">SEO</option>
+          <option value="conversion">转化</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="generateInsights()">刷新分析</button>
+        <button class="btn btn-outline btn-sm" onclick="exportReport()">导出报告</button>
+      </div>
+      <div id="insightList"></div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ======================= CONFIG =======================
+const CONFIG = {
+  getPropertyId: () => localStorage.getItem('ga4_property_id') || '',
+  setPropertyId: v => localStorage.setItem('ga4_property_id', v),
+  getClientId: () => localStorage.getItem('oauth_client_id') || '',
+  setClientId: v => localStorage.setItem('oauth_client_id', v),
+  getGscSite: () => localStorage.getItem('gsc_site_url') || '',
+  setGscSite: v => localStorage.setItem('gsc_site_url', v),
+  getToken: () => localStorage.getItem('google_token') || '',
+  setToken: v => localStorage.setItem('google_token', v),
+  getSetupDone: () => localStorage.getItem('setup_done') === 'true',
+  setSetupDone: v => localStorage.setItem('setup_done', v ? 'true' : ''),
+  getImportedData: () => { try{return JSON.parse(localStorage.getItem('imported_data')||'[]')}catch(e){return []} },
+  setImportedData: v => localStorage.setItem('imported_data', JSON.stringify(v)),
+};
+
+// ======================= STATE =======================
+let currentPage = 'setup';
+let ga4ChartInstances = {};
+let accessToken = '';
+let isAuthenticated = false;
+
+// ======================= SETUP =======================
+let currentStep = 1;
+function updateStepUI() {
+  document.querySelectorAll('.setup-step').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.classList.remove('active','done');
+    if (i+1 === currentStep) dot.classList.add('active');
+    else if (i+1 < currentStep) dot.classList.add('done');
+  });
+  document.getElementById('originDisplay').textContent = window.location.origin;
+}
+function nextStep() { if (currentStep < 5) { currentStep++; updateStepUI(); } }
+function prevStep() { if (currentStep > 1) { currentStep--; updateStepUI(); } }
+
+function finishSetup() {
+  const propId = document.getElementById('ga4PropertyId').value.trim();
+  const cId = document.getElementById('oauthClientId').value.trim();
+  const siteUrl = document.getElementById('gscSiteUrl').value.trim();
+  if (!propId) return alert('请输入 GA4 属性 ID');
+  if (!cId) return alert('请输入 OAuth Client ID');
+  if (!siteUrl) return alert('请输入 Search Console 网站地址');
+  CONFIG.setPropertyId(propId);
+  CONFIG.setClientId(cId);
+  CONFIG.setGscSite(siteUrl);
+  currentStep = 5;
+  updateStepUI();
+}
+
+function enterDashboard() {
+  CONFIG.setSetupDone(true);
+  initApp();
+}
+
+// ======================= OAuth =======================
+function initOAuth() {
+  const clientId = CONFIG.getClientId();
+  if (!clientId) return;
+  const redirectUri = window.location.origin + window.location.pathname;
+  const div = document.getElementById('gSignInWrapper');
+  div.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-primary';
+  btn.innerHTML = '🔗 使用 Google 账号登录';
+  btn.onclick = () => {
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      scope: 'https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly',
+      include_granted_scopes: 'true',
+      state: 'ga4tool'
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  };
+  div.appendChild(btn);
+}
+
+function handleRedirect() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return false;
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  if (token) {
+    accessToken = token;
+    CONFIG.setToken(token);
+    isAuthenticated = true;
+    updateAuthUI();
+    window.location.hash = '';
+    if (CONFIG.getSetupDone() && currentPage === 'setup') {
+      enterDashboard();
+    }
+    return true;
+  }
+  return false;
+}
+
+function updateAuthUI() {
+  const statusText = document.getElementById('statusText');
+  const statusDot = document.getElementById('statusDot');
+  if (isAuthenticated) {
+    statusText.textContent = '已连接';
+    statusDot.className = 'status-dot online';
+    document.getElementById('authStatus').style.display = 'block';
+    fetchUserInfo();
+  } else {
+    statusText.textContent = '未连接';
+    statusDot.className = 'status-dot';
+    document.getElementById('authStatus').style.display = 'none';
+  }
+}
+
+async function fetchUserInfo() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const data = await r.json();
+    if (data.email) {
+      document.getElementById('authEmail').textContent = data.email;
+      document.getElementById('statusText').textContent = data.email;
+    }
+  } catch(e) {}
+}
+
+// ======================= API: GA4 =======================
+async function fetchGA4(requestBody) {
+  const propertyId = CONFIG.getPropertyId();
+  if (!propertyId || !accessToken) return null;
+  try {
+    const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      console.error('GA4 API Error:', err);
+      return null;
+    }
+    return await r.json();
+  } catch(e) {
+    console.error('GA4 fetch error:', e);
+    return null;
+  }
+}
+
+function parseGA4Response(resp) {
+  if (!resp || !resp.rows) return [];
+  const dimHeaders = (resp.dimensionHeaders || []).map(h => h.name);
+  const metHeaders = (resp.metricHeaders || []).map(h => h.name);
+  return resp.rows.map(row => {
+    const item = {};
+    (row.dimensionValues || []).forEach((v, i) => { item[dimHeaders[i]] = v.value; });
+    (row.metricValues || []).forEach((v, i) => { item[metHeaders[i]] = v.value; });
+    return item;
+  });
+}
+
+function getDateRange() {
+  const days = parseInt(document.getElementById('dateRange')?.value || '28');
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  return {
+    startDate: start.toISOString().split('T')[0],
+    endDate: end.toISOString().split('T')[0],
+    days
+  };
+}
+
+// ======================= API: GSC =======================
+async function fetchGSC(requestBody) {
+  const siteUrl = CONFIG.getGscSite();
+  if (!siteUrl || !accessToken) return null;
+  try {
+    const r = await fetch(`https://searchconsole.googleapis.com/v1/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) {
+    console.error('GSC fetch error:', e);
+    return null;
+  }
+}
+
+// ======================= DASHBOARD: OVERVIEW =======================
+async function loadOverview() {
+  const dr = getDateRange();
+  document.getElementById('overviewDateRange').textContent = `近 ${dr.days} 天`;
+  showLoading('loadingOverview');
+
+  // Get basic metrics
+  const resp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    metrics: [
+      { name: 'totalUsers' },
+      { name: 'sessions' },
+      { name: 'screenPageViews' },
+      { name: 'bounceRate' },
+      { name: 'averageSessionDuration' },
+      { name: 'conversions' },
+    ],
+    keepEmptyRows: true,
+  });
+
+  if (resp && resp.rows && resp.rows[0]) {
+    const row = resp.rows[0];
+    const getVal = (idx) => row.metricValues[idx]?.value || '0';
+    document.getElementById('ovUsers').textContent = parseInt(getVal(0)).toLocaleString();
+    document.getElementById('ovSessions').textContent = parseInt(getVal(1)).toLocaleString();
+    document.getElementById('ovPageviews').textContent = parseInt(getVal(2)).toLocaleString();
+    document.getElementById('ovBounce').textContent = parseFloat(getVal(3)).toFixed(1) + '%';
+    const durSec = parseFloat(getVal(4));
+    const durMin = Math.floor(durSec / 60);
+    const durSecRem = Math.floor(durSec % 60);
+    document.getElementById('ovDuration').textContent = `${durMin}m ${durSecRem}s`;
+    document.getElementById('ovConversions').textContent = parseInt(getVal(5)).toLocaleString();
+  }
+
+  // User trend (daily)
+  const trendResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'date' }],
+    metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
+    orderBy: [{ dimension: { orderType: 'NUMERIC' }, desc: false }],
+    limit: dr.days + 5,
+  });
+
+  const trendData = parseGA4Response(trendResp);
+  renderTrendChart(trendData);
+
+  // Traffic sources
+  const sourceResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'sessionSource' }],
+    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+    orderBy: [{ metric: { metricName: 'sessions' }, desc: true }],
+    limit: 10,
+  });
+  const sourceData = parseGA4Response(sourceResp);
+  renderSourceChart(sourceData);
+
+  // Top pages
+  const pageResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'pagePathPlusQueryString' }],
+    metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+    orderBy: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+    limit: 10,
+  });
+  const pageData = parseGA4Response(pageResp);
+  renderPageChart(pageData);
+
+  hideLoading('loadingOverview');
+}
+
+function renderTrendChart(data) {
+  const ctx = document.getElementById('chartUsers');
+  destroyChart('trend');
+  ga4ChartInstances.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => {
+        const s = d.date+'';
+        return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+      }),
+      datasets: [
+        { label: '用户', data: data.map(d => parseInt(d.totalUsers || 0)), borderColor: '#4f8cff', backgroundColor: 'rgba(79,140,255,.1)', fill: true, tension: .3, pointRadius: 2 },
+        { label: '会话', data: data.map(d => parseInt(d.sessions || 0)), borderColor: '#22d3a0', backgroundColor: 'rgba(34,211,160,.1)', fill: true, tension: .3, pointRadius: 2 },
+      ]
+    },
+    options: chartOptions(),
+  });
+}
+
+function renderSourceChart(data) {
+  const ctx = document.getElementById('chartSources');
+  destroyChart('sources');
+  const labels = data.map(d => d.sessionSource || '(direct)');
+  const values = data.map(d => parseInt(d.sessions || 0));
+  const colors = ['#4f8cff','#22d3a0','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+  ga4ChartInstances.sources = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }]
+    },
+    options: {
+      ...chartOptions(),
+      plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } } }
+    }
+  });
+}
+
+function renderPageChart(data) {
+  const ctx = document.getElementById('chartPages');
+  destroyChart('pages');
+  const labels = data.map(d => {
+    const p = d.pagePathPlusQueryString || '';
+    return p.length > 25 ? p.slice(0,22)+'...' : p;
+  }).reverse();
+  const values = data.map(d => parseInt(d.screenPageViews || 0)).reverse();
+  ga4ChartInstances.pages = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: '浏览量', data: values, backgroundColor: 'rgba(79,140,255,.6)', borderRadius: 4 }]
+    },
+    options: {
+      ...chartOptions(),
+      indexAxis: 'y',
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// ======================= DASHBOARD: TRAFFIC =======================
+async function loadTraffic() {
+  showLoading('loadingTraffic');
+  const dr = getDateRange();
+
+  // Daily trend
+  const dailyResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'date' }],
+    metrics: [{ name: 'totalUsers' }, { name: 'sessions' }, { name: 'screenPageViews' }],
+    orderBy: [{ dimension: { orderType: 'NUMERIC' }, desc: false }],
+    limit: dr.days + 5,
+  });
+  const dailyData = parseGA4Response(dailyResp);
+  const ctx1 = document.getElementById('chartTrafficDaily');
+  destroyChart('trafficDaily');
+  ga4ChartInstances.trafficDaily = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels: dailyData.map(d => { const s=d.date+''; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }),
+      datasets: [
+        { label: '用户', data: dailyData.map(d => parseInt(d.totalUsers||0)), borderColor: '#4f8cff', tension: .3, pointRadius: 2 },
+        { label: '会话', data: dailyData.map(d => parseInt(d.sessions||0)), borderColor: '#22d3a0', tension: .3, pointRadius: 2 },
+      ]
+    },
+    options: chartOptions(),
+  });
+
+  // Source/Medium
+  const smResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
+    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'screenPageViews' }, { name: 'bounceRate' }],
+    orderBy: [{ metric: { metricName: 'sessions' }, desc: true }],
+    limit: 10,
+  });
+  const smData = parseGA4Response(smResp);
+  const ctx2 = document.getElementById('chartSourceMedium');
+  destroyChart('sourceMedium');
+  const smLabels = smData.map(d => `${d.sessionSource||'(direct)'} / ${d.sessionMedium||'none'}`);
+  ga4ChartInstances.sourceMedium = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: smLabels.reverse(),
+      datasets: [{ label: '会话', data: smData.map(d => parseInt(d.sessions||0)).reverse(), backgroundColor: 'rgba(79,140,255,.6)', borderRadius: 4 }]
+    },
+    options: { ...chartOptions(), indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+
+  // Device
+  const devResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'deviceCategory' }],
+    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+    limit: 10,
+  });
+  const devData = parseGA4Response(devResp);
+  const ctx3 = document.getElementById('chartDevice');
+  destroyChart('device');
+  ga4ChartInstances.device = new Chart(ctx3, {
+    type: 'doughnut',
+    data: {
+      labels: devData.map(d => d.deviceCategory || 'unknown'),
+      datasets: [{ data: devData.map(d => parseInt(d.sessions||0)), backgroundColor: ['#4f8cff','#22d3a0','#f59e0b'], borderWidth: 0 }]
+    },
+    options: { ...chartOptions(), plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } } } }
+  });
+
+  // Table
+  const tableTbody = document.querySelector('#trafficTable tbody');
+  tableTbody.innerHTML = smData.map(d => `
+    <tr>
+      <td>${d.sessionSource||'(direct)'} / ${d.sessionMedium||'none'}</td>
+      <td>${parseInt(d.totalUsers||0).toLocaleString()}</td>
+      <td>${parseInt(d.sessions||0).toLocaleString()}</td>
+      <td>${parseInt(d.screenPageViews||0).toLocaleString()}</td>
+      <td>${parseFloat(d.bounceRate||0).toFixed(1)}%</td>
+    </tr>
+  `).join('');
+
+  hideLoading('loadingTraffic');
+}
+
+// ======================= DASHBOARD: SEARCH =======================
+async function loadSearch() {
+  showLoading('loadingSearch');
+  const dr = getDateRange();
+
+  const resp = await fetchGSC({
+    startDate: dr.startDate,
+    endDate: dr.endDate,
+    dimensions: ['query'],
+    rowLimit: 50,
+  });
+
+  if (!resp || !resp.rows) {
+    hideLoading('loadingSearch');
+    document.getElementById('gscClicks').textContent = '—';
+    document.getElementById('gscImpressions').textContent = '—';
+    document.getElementById('gscCtr').textContent = '—';
+    document.getElementById('gscPosition').textContent = '—';
+    return;
+  }
+
+  const rows = resp.rows;
+  const totalClicks = rows.reduce((s, r) => s + (r.clicks || 0), 0);
+  const totalImpr = rows.reduce((s, r) => s + (r.impressions || 0), 0);
+  const avgCtr = totalImpr > 0 ? (totalClicks / totalImpr * 100) : 0;
+  const avgPos = rows.reduce((s, r) => s + (r.position || 0) * (r.impressions || 0), 0) / (totalImpr || 1);
+
+  document.getElementById('gscClicks').textContent = totalClicks.toLocaleString();
+  document.getElementById('gscImpressions').textContent = totalImpr.toLocaleString();
+  document.getElementById('gscCtr').textContent = avgCtr.toFixed(2) + '%';
+  document.getElementById('gscPosition').textContent = avgPos.toFixed(1);
+
+  // Trend data
+  const trendResp = await fetchGSC({
+    startDate: dr.startDate,
+    endDate: dr.endDate,
+    dimensions: ['date'],
+    rowLimit: dr.days + 5,
+  });
+  if (trendResp && trendResp.rows) {
+    const tData = trendResp.rows;
+    const ctx = document.getElementById('chartGscTrend');
+    destroyChart('gscTrend');
+    ga4ChartInstances.gscTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: tData.map(d => d.keys[0]),
+        datasets: [
+          { label: '点击', data: tData.map(d => d.clicks||0), borderColor: '#4f8cff', tension: .3, pointRadius: 2, yAxisID: 'y' },
+          { label: '展示', data: tData.map(d => d.impressions||0), borderColor: '#22d3a0', tension: .3, pointRadius: 2, yAxisID: 'y1' },
+        ]
+      },
+      options: {
+        ...chartOptions(),
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8' } },
+          y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8' }, position: 'left' },
+          y1: { grid: { display: false }, ticks: { color: '#94a3b8' }, position: 'right' },
+        }
+      }
+    });
+  }
+
+  // Queries table
+  const qTbody = document.querySelector('#queriesTable tbody');
+  qTbody.innerHTML = rows.slice(0, 20).map(r => {
+    const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) + '%' : '0%';
+    return `<tr><td>${r.keys[0]}</td><td>${r.clicks||0}</td><td>${r.impressions||0}</td><td>${ctr}</td><td>${(r.position||0).toFixed(1)}</td></tr>`;
+  }).join('');
+
+  // GSC pages
+  const pageResp = await fetchGSC({
+    startDate: dr.startDate,
+    endDate: dr.endDate,
+    dimensions: ['page'],
+    rowLimit: 20,
+  });
+  if (pageResp && pageResp.rows) {
+    const pTbody = document.querySelector('#gscPagesTable tbody');
+    pTbody.innerHTML = pageResp.rows.map(r => {
+      const ctr = r.impressions > 0 ? (r.clicks / r.impressions * 100).toFixed(2) + '%' : '0%';
+      return `<tr><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.keys[0]}</td><td>${r.clicks||0}</td><td>${r.impressions||0}</td><td>${ctr}</td><td>${(r.position||0).toFixed(1)}</td></tr>`;
+    }).join('');
+  }
+
+  hideLoading('loadingSearch');
+}
+
+// ======================= DASHBOARD: CONVERSION =======================
+async function loadConversion() {
+  showLoading('loadingConversion');
+  const dr = getDateRange();
+
+  // Get key events
+  const eventResp = await fetchGA4({
+    dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+    dimensions: [{ name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    orderBy: [{ metric: { metricName: 'eventCount' }, desc: true }],
+    limit: 30,
+  });
+  const eventData = parseGA4Response(eventResp);
+
+  if (eventData.length > 0) {
+    // Event trend
+    const trendResp = await fetchGA4({
+      dateRanges: [{ startDate: dr.startDate, endDate: dr.endDate }],
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'eventCount' }, { name: 'conversions' }],
+      orderBy: [{ dimension: { orderType: 'NUMERIC' }, desc: false }],
+      limit: dr.days + 5,
+    });
+    const trendData = parseGA4Response(trendResp);
+    const ctx = document.getElementById('chartEvents');
+    destroyChart('events');
+    ga4ChartInstances.events = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: trendData.map(d => { const s=d.date+''; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }),
+        datasets: [
+          { label: '事件', data: trendData.map(d => parseInt(d.eventCount||0)), borderColor: '#4f8cff', tension: .3, pointRadius: 2 },
+          { label: '转化', data: trendData.map(d => parseInt(d.conversions||0)), borderColor: '#22d3a0', tension: .3, pointRadius: 2 },
+        ]
+      },
+      options: chartOptions(),
+    });
+
+    const total = eventData.reduce((s, d) => s + parseInt(d.eventCount||0), 0);
+    const eTbody = document.querySelector('#eventsTable tbody');
+    eTbody.innerHTML = eventData.map(d => {
+      const count = parseInt(d.eventCount||0);
+      const pct = total > 0 ? (count / total * 100).toFixed(1) + '%' : '—';
+      return `<tr><td>${d.eventName}</td><td>${count.toLocaleString()}</td><td>${parseInt(d.totalUsers||0).toLocaleString()}</td><td>${pct}</td></tr>`;
+    }).join('');
+
+    document.getElementById('conversionContent').innerHTML = '';
+  } else {
+    document.getElementById('conversionContent').innerHTML = '<p style="color:var(--text2);">未找到事件数据。确保 GA4 中已配置事件跟踪。</p>';
+  }
+
+  hideLoading('loadingConversion');
+}
+
+// ======================= CSV IMPORT =======================
+function handleCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    parseCSV(text, file.name);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text, filename) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return alert('CSV 文件至少需要标题行和一行数据');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const rows = lines.slice(1).map(l => {
+    const vals = l.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row = {};
+    headers.forEach((h, i) => row[h] = vals[i] || '');
+    return row;
+  });
+
+  // Store
+  CONFIG.setImportedData(rows);
+
+  // Display
+  document.getElementById('importedData').style.display = 'block';
+  document.getElementById('importedFileName').textContent = `（${filename}，${rows.length} 行）`;
+  const thead = document.querySelector('#importTable thead');
+  const tbody = document.querySelector('#importTable tbody');
+  thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  tbody.innerHTML = rows.slice(0, 100).map(r =>
+    '<tr>' + headers.map(h => `<td>${(r[h]||'').slice(0, 100)}</td>`).join('') + '</tr>'
+  ).join('');
+
+  // Set dropzone text
+  document.querySelector('.upload-zone p').innerHTML = `<strong>✓ 已导入 ${filename}</strong>（${rows.length} 行数据）`;
+}
+
+// Drag & drop
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) {
+    const reader = new FileReader();
+    reader.onload = function(ev) { parseCSV(ev.target.result, file.name); };
+    reader.readAsText(file);
+  }
+});
+
+// ======================= INSIGHTS =======================
+async function generateInsights() {
+  const list = document.getElementById('insightList');
+  const focus = document.getElementById('insightFocus').value;
+  const dr = getDateRange();
+  let insights = [];
+
+  // Traffic insights
+  if (focus === 'all' || focus === 'traffic') {
+    insights.push({ type:'info', title:'流量概览', desc:`近 ${dr.days} 天数据已加载完毕，建议关注趋势变化和渠道分布。` });
+  }
+
+  if (focus === 'all' || focus === 'seo') {
+    // Check GSC data
+    const gscClicks = document.getElementById('gscClicks').textContent;
+    if (gscClicks !== '—') {
+      const clicks = parseInt(gscClicks.replace(/,/g, ''));
+      const impr = parseInt(document.getElementById('gscImpressions').textContent.replace(/,/g, ''));
+      const ctr = parseFloat(document.getElementById('gscCtr').textContent);
+      const pos = parseFloat(document.getElementById('gscPosition').textContent);
+
+      if (pos > 10) {
+        insights.push({ type:'warning', title:'搜索排名有提升空间', desc:`平均排名 ${pos.toFixed(1)}，建议优化 Top 10 边缘页面的标题和内容。` });
+      }
+      if (ctr < 3) {
+        insights.push({ type:'warning', title:'CTR 偏低', desc:`当前 CTR ${ctr.toFixed(2)}%，建议优化标题标签和 Meta Description，增加搜索吸引力。` });
+      }
+      if (impr > 1000 && clicks < 50) {
+        insights.push({ type:'danger', title:'高展示低点击页面', desc:`有页面展示量高但点击率极低，建议检查这些页面的标题和摘要是否匹配搜索意图。` });
+      }
+    } else {
+      insights.push({ type:'info', title:'搜索数据未加载', desc:'请在设置中确认 Search Console 配置并刷新数据。' });
+    }
+  }
+
+  if (focus === 'all' || focus === 'conversion') {
+    const convVal = document.getElementById('ovConversions').textContent;
+    if (convVal !== '—') {
+      const conv = parseInt(convVal.replace(/,/g, ''));
+      if (conv === 0) {
+        insights.push({ type:'warning', title:'未检测到转化事件', desc:'GA4 中可能未配置转化事件。建议在 GA4 管理后台设置关键事件（如表单提交、注册）为转化。' });
+      } else if (conv < 100) {
+        insights.push({ type:'info', title:'转化数据尚少', desc:`近 ${dr.days} 天共 ${conv} 次转化，建议先持续积累数据再进行深入分析。` });
+      } else {
+        insights.push({ type:'success', title:'转化数据充足', desc:`近 ${dr.days} 天共 ${conv.toLocaleString()} 次转化。` });
+      }
+    }
+  }
+
+  // Recommendations based on imported data
+  const imported = CONFIG.getImportedData();
+  if (imported.length > 0) {
+    insights.push({ type:'success', title:'已导入外部数据', desc:`成功导入 ${imported.length} 行 CSV 数据，可在分析中结合使用。` });
+  }
+
+  // General recommendations
+  insights.push({ type:'info', title:'建议定期分析', desc:'建议每周查看一次数据趋势，重点关注转化率和流量来源变化。' });
+  insights.push({ type:'info', title:'多维度交叉分析', desc:'将 GA4 流量数据与 GSC 搜索数据结合分析，找出高转化关键词和页面，针对性优化。' });
+
+  // Render
+  if (focus !== 'all') {
+    insights = insights.filter(i => {
+      if (focus === 'traffic') return i.title.includes('流量') || i.title.includes('趋势');
+      if (focus === 'seo') return i.title.includes('搜索') || i.title.includes('排名') || i.title.includes('CTR');
+      if (focus === 'conversion') return i.title.includes('转化');
+      return true;
+    });
+    if (insights.length === 0) {
+      insights.push({ type:'info', title:'暂无此维度的特定建议', desc:'请切换其他维度或加载更多数据。' });
+    }
+  }
+
+  list.innerHTML = insights.map(i => `
+    <div class="insight">
+      <div class="insight-header">
+        <div class="insight-icon ${i.type}">
+          ${i.type === 'success' ? '✅' : i.type === 'warning' ? '⚠️' : i.type === 'danger' ? '🚨' : '💡'}
+        </div>
+        <h4>${i.title}</h4>
+      </div>
+      <p>${i.desc}</p>
+    </div>
+  `).join('');
+}
+
+// ======================= EXPORT =======================
+function exportReport() {
+  const insights = document.querySelectorAll('.insight');
+  if (insights.length === 0) {
+    alert('请先生成分析建议再导出');
+    return;
+  }
+  let text = '=== GA4 数据分析报告 ===\n';
+  text += `生成时间: ${new Date().toLocaleString()}\n\n`;
+
+  // Overview data
+  text += '--- 核心指标 ---\n';
+  document.querySelectorAll('#overviewCards .card').forEach(card => {
+    const label = card.querySelector('.card-label')?.textContent || '';
+    const value = card.querySelector('.card-value')?.textContent || '';
+    text += `${label}: ${value}\n`;
+  });
+
+  text += '\n--- 策略建议 ---\n';
+  insights.forEach((insight, i) => {
+    const title = insight.querySelector('h4')?.textContent || '';
+    const desc = insight.querySelector('p')?.textContent || '';
+    text += `${i+1}. ${title}: ${desc}\n`;
+  });
+
+  text += '\n--- 搜索数据 ---\n';
+  text += `点击: ${document.getElementById('gscClicks').textContent}\n`;
+  text += `展示: ${document.getElementById('gscImpressions').textContent}\n`;
+  text += `CTR: ${document.getElementById('gscCtr').textContent}\n`;
+  text += `排名: ${document.getElementById('gscPosition').textContent}\n`;
+
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `GA4分析报告_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ======================= UTILITIES =======================
+function chartOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+    },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+    }
+  };
+}
+
+function destroyChart(key) {
+  if (ga4ChartInstances[key]) {
+    ga4ChartInstances[key].destroy();
+    delete ga4ChartInstances[key];
+  }
+}
+
+function showLoading(id) {
+  document.getElementById(id).classList.add('show');
+}
+function hideLoading(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ======================= NAVIGATION =======================
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${pageId}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${pageId}"]`)?.classList.add('active');
+  currentPage = pageId;
+
+  // Load data on tab switch
+  if (pageId === 'overview') loadOverview();
+  else if (pageId === 'traffic') loadTraffic();
+  else if (pageId === 'search') loadSearch();
+  else if (pageId === 'conversion') loadConversion();
+  else if (pageId === 'insights') generateInsights();
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const page = item.dataset.page;
+    if (page) switchPage(page);
+  });
+});
+
+// ======================= REFRESH =======================
+async function refreshAll() {
+  if (currentPage === 'overview') await loadOverview();
+  else if (currentPage === 'traffic') await loadTraffic();
+  else if (currentPage === 'search') await loadSearch();
+  else if (currentPage === 'conversion') await loadConversion();
+}
+
+// ======================= INIT =======================
+function initApp() {
+  // Restore settings
+  document.getElementById('ga4PropertyId').value = CONFIG.getPropertyId();
+  document.getElementById('oauthClientId').value = CONFIG.getClientId();
+  document.getElementById('gscSiteUrl').value = CONFIG.getGscSite();
+
+  // Check auth
+  const savedToken = CONFIG.getToken();
+  if (savedToken) {
+    accessToken = savedToken;
+    isAuthenticated = true;
+    updateAuthUI();
+  }
+
+  if (CONFIG.getSetupDone()) {
+    switchPage('overview');
+  }
+}
+
+// Check for OAuth redirect
+if (!handleRedirect() && CONFIG.getSetupDone()) {
+  initApp();
+} else if (!CONFIG.getSetupDone()) {
+  updateStepUI();
+  document.getElementById('originDisplay').textContent = window.location.origin;
+  initOAuth();
+} else {
+  initApp();
+}
+</script>
+</body>
+</html>
