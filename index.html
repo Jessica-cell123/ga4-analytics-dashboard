@@ -1222,27 +1222,33 @@ let jsonpCounter = 0;
 function jsonpCall(url, params) {
   return new Promise((resolve, reject) => {
     const callbackName = '_jsonp' + (++jsonpCounter);
-    const separator = url.includes('?') ? '&' : '?';
-    const queryParts = [];
-    for (const key in params) {
-      queryParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
-    }
-    queryParts.push('callback=' + callbackName);
-    const fullUrl = url + separator + queryParts.join('&');
-
+    const sep = url.includes('?') ? '&' : '?';
+    const parts = [];
+    for (const k in params) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    parts.push('callback=' + callbackName);
+    const fullUrl = url + sep + parts.join('&');
+    const script = document.createElement('script');
+    script.async = true;
+    const timeout = setTimeout(() => {
+      if (window[callbackName]) {
+        delete window[callbackName];
+        document.head.removeChild(script);
+        reject(new Error('请求超时'));
+      }
+    }, 15000);
     window[callbackName] = function(data) {
+      clearTimeout(timeout);
       delete window[callbackName];
-      document.head.removeChild(script);
+      if (script.parentNode) document.head.removeChild(script);
       resolve(data);
     };
-
-    const script = document.createElement('script');
-    script.src = fullUrl;
     script.onerror = function() {
+      clearTimeout(timeout);
       delete window[callbackName];
-      document.head.removeChild(script);
+      if (script.parentNode) document.head.removeChild(script);
       reject(new Error('JSONP 请求失败'));
     };
+    script.src = fullUrl;
     document.head.appendChild(script);
   });
 }
