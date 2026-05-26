@@ -383,113 +383,59 @@ tr:hover td { background: rgba(79,140,255,.04); }
 <!-- ============ SETUP OVERLAY ============ -->
 <div class="setup-overlay show" id="setupOverlay">
   <div class="setup-container">
-    <div class="step-indicators" id="stepIndicators">
-      <div class="step-dot active"></div>
-      <div class="step-dot"></div>
-      <div class="step-dot"></div>
-      <div class="step-dot"></div>
-      <div class="step-dot"></div>
-    </div>
+    <div class="card">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:40px;margin-bottom:8px;">📊</div>
+        <h2 style="font-size:22px;">配置数据分析</h2>
+        <p style="color:var(--text2);font-size:14px;">填入以下信息即可开始</p>
+      </div>
 
-    <!-- Step 1 -->
-    <div class="setup-step active" data-step="1">
-      <div class="card">
-        <h2>🔍 找到你的 GA4 属性 ID</h2>
-        <p>GA4 属性 ID 是你的 Google Analytics 4 账号标识，格式如 <strong>123456789</strong>。</p>
-        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-          <li>打开 <strong><a href="https://analytics.google.com" target="_blank" style="color:var(--primary)">Google Analytics</a></strong></li>
-          <li>点击左下角 <strong>齿轮图标 ⚙️（管理）</strong></li>
-          <li>在「属性」列中，第一行就是 <strong>属性 ID</strong>（格式：UA-xxxxx 或 数字）</li>
-          <li>复制这个数字备用</li>
-        </ol>
-        <div class="form-group">
-          <label>GA4 属性 ID</label>
-          <input type="text" id="ga4PropertyId" placeholder="例如：123456789">
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+      <div class="form-group">
+        <label>🔍 GA4 属性 ID</label>
+        <input type="text" id="ga4PropertyId" placeholder="例如：123456789">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px;">
+          在 <a href="https://analytics.google.com" target="_blank" style="color:var(--primary)">Google Analytics</a> → 左下角「管理」→「属性」列 → 复制属性 ID
         </div>
       </div>
-    </div>
 
-    <!-- Step 2 -->
-    <div class="setup-step" data-step="2">
-      <div class="card">
-        <h2>☁️ 创建 Google Cloud 项目</h2>
-        <p>需要创建一个 Google Cloud 项目来开启数据接口。</p>
-        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-          <li>打开 <strong><a href="https://console.cloud.google.com/projectcreate" target="_blank" style="color:var(--primary)">Google Cloud Console</a></strong></li>
-          <li>给你的项目起个名字（如 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">GA4 数据分析</code>）</li>
-          <li>点击「创建」</li>
-        </ol>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-          <button class="btn btn-primary" onclick="nextStep()">我已创建，下一步</button>
+      <div class="form-group">
+        <label>🌐 GSC 网站地址（Search Console）</label>
+        <input type="text" id="gscSiteUrl" placeholder="sc-domain:example.com 或 https://example.com/">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px;">
+          在 <a href="https://search.google.com/search-console" target="_blank" style="color:var(--primary)">Search Console</a> → 设置 → 已备案的资源 中查看
         </div>
       </div>
-    </div>
 
-    <!-- Step 3 -->
-    <div class="setup-step" data-step="3">
-      <div class="card">
-        <h2>🔑 启用 API 并创建凭据</h2>
-        <p>在你的 Google Cloud 项目中开启以下两个 API：</p>
-        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-          <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com" target="_blank" style="color:var(--primary)">Google Analytics Data API</a></strong> → 点击「启用」</li>
-          <li>进入 <strong><a href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com" target="_blank" style="color:var(--primary)">Google Search Console API</a></strong> → 点击「启用」</li>
-        </ol>
-        <p style="color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:12px;">然后创建 OAuth 凭据：</p>
-        <ol style="color:var(--text2);font-size:14px;line-height:2;margin-bottom:20px;padding-left:20px;">
-          <li>进入 <strong><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary)">凭据页面</a></strong></li>
-          <li>点击「<strong>创建凭据</strong>」→「<strong>OAuth 客户端 ID</strong>」</li>
-          <li>应用类型选择「<strong>Web 应用</strong>」</li>
-          <li>名称填任意名字</li>
-          <li>「<strong>已授权的 JavaScript 来源</strong>」填：<code style="background:var(--bg3);padding:2px 6px;border-radius:4px;word-break:break-all;" id="originDisplay"></code></li>
-          <li>点击「创建」，会弹出一个对话框显示你的 <strong>Client ID</strong></li>
-          <li>复制那个 Client ID（以 <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;">.apps.googleusercontent.com</code> 结尾）</li>
-        </ol>
-        <div class="form-group">
-          <label>OAuth Client ID</label>
-          <input type="text" id="oauthClientId" placeholder="xxx.apps.googleusercontent.com">
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-          <button class="btn btn-primary" onclick="nextStep()">下一步</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+
+      <div class="form-group">
+        <label>🤖 Apps Script 后端地址（推荐）</label>
+        <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px;">
+          部署 Apps Script 后得到的 Web App URL。不需要 OAuth 和 Cloud 项目。
         </div>
       </div>
-    </div>
 
-    <!-- Step 4 -->
-    <div class="setup-step" data-step="4">
-      <div class="card">
-        <h2>🔗 连接你的 Google 账号</h2>
-        <p>点击下方按钮，授权此工具访问你的 GA4 和 Search Console 数据。</p>
-        <div id="gSignInWrapper" style="margin: 24px 0;"></div>
-        <div id="authStatus" style="display:none;padding:16px;background:rgba(34,211,160,.1);border:1px solid rgba(34,211,160,.2);border-radius:var(--radius-sm);margin-bottom:16px;">
-          <span style="color:var(--accent);font-weight:600;">✅ 已登录</span>
-          <span id="authEmail" style="color:var(--text2);margin-left:8px;"></span>
-        </div>
-        <div class="form-group">
-          <label>GSC 网站地址（Search Console 已验证的域名）</label>
-          <input type="text" id="gscSiteUrl" placeholder="sc-domain:example.com 或 https://example.com/">
-          <div style="font-size:12px;color:var(--text3);margin-top:4px;">在 Search Console 设置 > 已备案的资源 中查看</div>
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="prevStep()">上一步</button>
-          <button class="btn btn-primary" onclick="finishSetup()">完成设置，进入仪表盘</button>
-        </div>
+      <details style="margin-top:12px;font-size:12px;color:var(--text3);">
+        <summary style="cursor:pointer;">如何部署 Apps Script？（点击展开）</summary>
+        <ol style="margin-top:8px;line-height:1.8;padding-left:16px;">
+          <li>打开 <a href="https://script.google.com" target="_blank" style="color:var(--primary)">script.google.com</a>（用你的 Google 账号登录）</li>
+          <li>点左上角「+ 新建项目」</li>
+          <li>删除编辑器中的默认代码，粘贴下方提供的代码</li>
+          <li>点「部署」→「新建部署」→ 类型选择「<strong>Web 应用</strong>」</li>
+          <li>执行身份选择「<strong>我</strong>」，访问权限选「<strong>任何人</strong>」</li>
+          <li>点「部署」，首次会要求授权 → 同意即可</li>
+          <li>复制生成的 <strong>Web App URL</strong>，粘贴到上方输入框</li>
+        </ol>
+      </details>
+
+      <div class="form-group" style="margin-top:20px;">
+        <label>或者用 OAuth（需创建 Google Cloud 项目）</label>
+        <input type="text" id="oauthClientId" placeholder="OAuth Client ID（可留空）">
       </div>
-    </div>
 
-    <!-- Step 5 -->
-    <div class="setup-step" data-step="5">
-      <div class="card" style="text-align:center;">
-        <div style="font-size:48px;margin-bottom:16px;">🎉</div>
-        <h2>设置完成！</h2>
-        <p>你的配置已保存，现在可以开始分析数据了。</p>
-        <div class="btn-group" style="justify-content:center;">
-          <button class="btn btn-primary" onclick="enterDashboard()">进入仪表盘 →</button>
-        </div>
+      <div class="btn-group" style="justify-content:center;">
+        <button class="btn btn-primary" onclick="finishSetup()" style="padding:12px 32px;">✅ 保存配置，进入仪表盘</button>
       </div>
     </div>
   </div>
@@ -504,6 +450,8 @@ const CONFIG = {
   setClientId: v => localStorage.setItem('oauth_client_id', v),
   getGscSite: () => localStorage.getItem('gsc_site_url') || '',
   setGscSite: v => localStorage.setItem('gsc_site_url', v),
+  getAppsScriptUrl: () => localStorage.getItem('apps_script_url') || '',
+  setAppsScriptUrl: v => localStorage.setItem('apps_script_url', v),
   getToken: () => localStorage.getItem('google_token') || '',
   setToken: v => localStorage.setItem('google_token', v),
   getSetupDone: () => localStorage.getItem('setup_done') === 'true',
@@ -519,32 +467,45 @@ let accessToken = '';
 let isAuthenticated = false;
 
 // ======================= SETUP =======================
-let currentStep = 1;
-function updateStepUI() {
-  document.querySelectorAll('.setup-step').forEach(el => el.classList.remove('active'));
-  document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
-  document.querySelectorAll('.step-dot').forEach((dot, i) => {
-    dot.classList.remove('active','done');
-    if (i+1 === currentStep) dot.classList.add('active');
-    else if (i+1 < currentStep) dot.classList.add('done');
-  });
-  document.getElementById('originDisplay').textContent = window.location.origin;
-}
-function nextStep() { if (currentStep < 5) { currentStep++; updateStepUI(); } }
-function prevStep() { if (currentStep > 1) { currentStep--; updateStepUI(); } }
-
 function finishSetup() {
   const propId = document.getElementById('ga4PropertyId').value.trim();
-  const cId = document.getElementById('oauthClientId').value.trim();
   const siteUrl = document.getElementById('gscSiteUrl').value.trim();
+  const appsScriptUrl = document.getElementById('appsScriptUrl').value.trim();
+  const cId = document.getElementById('oauthClientId').value.trim();
+
   if (!propId) return alert('请输入 GA4 属性 ID');
-  if (!cId) return alert('请输入 OAuth Client ID');
   if (!siteUrl) return alert('请输入 Search Console 网站地址');
+
   CONFIG.setPropertyId(propId);
-  CONFIG.setClientId(cId);
   CONFIG.setGscSite(siteUrl);
-  currentStep = 5;
-  updateStepUI();
+  CONFIG.setAppsScriptUrl(appsScriptUrl);
+  CONFIG.setClientId(cId);
+
+  if (cId) {
+    document.getElementById('setupOverlay').classList.remove('show');
+    CONFIG.setSetupDone(true);
+    initApp();
+  } else if (appsScriptUrl) {
+    testAppsScriptConnection(appsScriptUrl);
+  } else {
+    alert('请填写 Apps Script 后端地址 或 OAuth Client ID（至少填一个）');
+  }
+}
+
+async function testAppsScriptConnection(url) {
+  try {
+    const r = await fetch(url, { method: 'GET' });
+    const data = await r.json();
+    if (data.status === 'ok') {
+      document.getElementById('setupOverlay').classList.remove('show');
+      CONFIG.setSetupDone(true);
+      initApp();
+    } else {
+      alert('Apps Script 连接测试失败，请检查 URL 是否正确');
+    }
+  } catch(e) {
+    alert('无法连接到 Apps Script 后端，请检查 URL 是否正确');
+  }
 }
 
 function enterDashboard() {
@@ -628,6 +589,30 @@ async function fetchUserInfo() {
 // ======================= API: GA4 =======================
 async function fetchGA4(requestBody) {
   const propertyId = CONFIG.getPropertyId();
+  const dr = getDateRange();
+  const appsScriptUrl = CONFIG.getAppsScriptUrl();
+
+  // Try Apps Script proxy first
+  if (appsScriptUrl) {
+    try {
+      const r = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'fetchGA4',
+          params: { propertyId, startDate: dr.startDate, endDate: dr.endDate, requestBody }
+        })
+      });
+      const data = await r.json();
+      if (data.status === 'ok') return data.data;
+      return null;
+    } catch(e) {
+      console.error('Apps Script proxy error:', e);
+      return null;
+    }
+  }
+
+  // Fallback: direct OAuth
   if (!propertyId || !accessToken) return null;
   try {
     const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
@@ -677,6 +662,30 @@ function getDateRange() {
 // ======================= API: GSC =======================
 async function fetchGSC(requestBody) {
   const siteUrl = CONFIG.getGscSite();
+  const dr = getDateRange();
+  const appsScriptUrl = CONFIG.getAppsScriptUrl();
+
+  // Try Apps Script proxy first
+  if (appsScriptUrl) {
+    try {
+      const r = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'fetchGSC',
+          params: { siteUrl, startDate: dr.startDate, endDate: dr.endDate, requestBody }
+        })
+      });
+      const data = await r.json();
+      if (data.status === 'ok') return data.data;
+      return null;
+    } catch(e) {
+      console.error('Apps Script proxy error:', e);
+      return null;
+    }
+  }
+
+  // Fallback: direct OAuth
   if (!siteUrl || !accessToken) return null;
   try {
     const r = await fetch(`https://searchconsole.googleapis.com/v1/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
@@ -1293,12 +1302,11 @@ async function refreshAll() {
 
 // ======================= INIT =======================
 function initApp() {
-  // Restore settings
   document.getElementById('ga4PropertyId').value = CONFIG.getPropertyId();
-  document.getElementById('oauthClientId').value = CONFIG.getClientId();
   document.getElementById('gscSiteUrl').value = CONFIG.getGscSite();
+  document.getElementById('appsScriptUrl').value = CONFIG.getAppsScriptUrl();
+  document.getElementById('oauthClientId').value = CONFIG.getClientId();
 
-  // Check auth
   const savedToken = CONFIG.getToken();
   if (savedToken) {
     accessToken = savedToken;
@@ -1313,15 +1321,16 @@ function initApp() {
 
 // Initialize app
 function bootApp() {
+  const overlay = document.getElementById('setupOverlay');
   if (CONFIG.getSetupDone()) {
-    document.getElementById('setupOverlay').classList.remove('show');
+    overlay.classList.remove('show');
     initApp();
   } else {
-    document.getElementById('setupOverlay').classList.add('show');
-    updateStepUI();
-    const originEl = document.getElementById('originDisplay');
-    if (originEl) originEl.textContent = window.location.origin;
-    setTimeout(initOAuth, 500);
+    overlay.classList.add('show');
+    document.getElementById('ga4PropertyId').value = CONFIG.getPropertyId();
+    document.getElementById('gscSiteUrl').value = CONFIG.getGscSite();
+    document.getElementById('appsScriptUrl').value = CONFIG.getAppsScriptUrl();
+    document.getElementById('oauthClientId').value = CONFIG.getClientId();
   }
 }
 if (document.readyState === 'loading') {
