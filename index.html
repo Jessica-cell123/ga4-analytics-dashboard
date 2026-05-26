@@ -495,8 +495,8 @@ function finishSetup() {
 
 async function testAppsScriptConnection(url) {
   try {
-    const data = await jsonpCall(url, { action: 'ping' });
-    if (data.status === 'ok') {
+    const resp = await iframeCall(url, { action: 'ping' });
+    if (resp.status === 'ok') {
       document.getElementById('setupOverlay').classList.remove('show');
       CONFIG.setSetupDone(true);
       initApp();
@@ -595,16 +595,15 @@ async function fetchGA4(requestBody) {
 
   if (appsScriptUrl) {
     try {
-      const data = await jsonpCall(appsScriptUrl, {
+      const resp = await iframeCall(appsScriptUrl, {
         action: 'fetchGA4',
         propertyId: propertyId,
         body: JSON.stringify(requestBody)
       });
-      if (data.status === 'ok') return data.data;
-      showError('GA4: ' + (data.message || '错误'));
+      if (resp.status === 'ok') return resp.data;
       return null;
     } catch(e) {
-      showError('Apps Script: ' + e.message);
+      showError('GA4: ' + e.message);
       return null;
     }
   }
@@ -653,16 +652,15 @@ async function fetchGSC(requestBody) {
 
   if (appsScriptUrl) {
     try {
-      const data = await jsonpCall(appsScriptUrl, {
+      const resp = await iframeCall(appsScriptUrl, {
         action: 'fetchGSC',
         siteUrl: siteUrl,
         body: JSON.stringify(requestBody)
       });
-      if (data.status === 'ok') return data.data;
-      showError('GSC: ' + (data.message || '错误'));
+      if (resp.status === 'ok') return resp.data;
       return null;
     } catch(e) {
-      showError('Apps Script: ' + e.message);
+      showError('GSC: ' + e.message);
       return null;
     }
   }
@@ -1215,43 +1213,57 @@ function exportReport() {
   URL.revokeObjectURL(a.href);
 }
 
-// ======================= JSONP UTILITY =======================
+// ======================= IFRAME POSTMESSAGE UTILITY =======================
 
-let jsonpCounter = 0;
+let iframeIdCounter = 0;
+const iframePromises = {};
 
-function jsonpCall(url, params) {
+function iframeCall(url, params) {
   return new Promise((resolve, reject) => {
-    const callbackName = '_jsonp' + (++jsonpCounter);
+    const id = 'if' + (++iframeIdCounter);
+    params.id = id;
     const sep = url.includes('?') ? '&' : '?';
     const parts = [];
     for (const k in params) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
-    parts.push('callback=' + callbackName);
     const fullUrl = url + sep + parts.join('&');
-    const script = document.createElement('script');
-    script.async = true;
+
+    iframePromises[id] = { resolve, reject };
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = fullUrl;
+
     const timeout = setTimeout(() => {
-      if (window[callbackName]) {
-        delete window[callbackName];
-        document.head.removeChild(script);
+      if (iframePromises[id]) {
+        delete iframePromises[id];
+        if (iframe.parentNode) document.body.removeChild(iframe);
         reject(new Error('请求超时'));
       }
-    }, 15000);
-    window[callbackName] = function(data) {
-      clearTimeout(timeout);
-      delete window[callbackName];
-      if (script.parentNode) document.head.removeChild(script);
-      resolve(data);
+    }, 20000);
+
+    iframe.onload = function() {
+      // Will be resolved by message listener
     };
-    script.onerror = function() {
-      clearTimeout(timeout);
-      delete window[callbackName];
-      if (script.parentNode) document.head.removeChild(script);
-      reject(new Error('JSONP 请求失败'));
-    };
-    script.src = fullUrl;
-    document.head.appendChild(script);
+
+    document.body.appendChild(iframe);
+
+    // Store iframe reference for cleanup
+    iframePromises[id].iframe = iframe;
+    iframePromises[id].timeout = timeout;
   });
 }
+
+// Listen for postMessage from Apps Script iframes
+window.addEventListener('message', function(e) {
+  const data = e.data;
+  if (!data || !data.id || !iframePromises[data.id]) return;
+  const p = iframePromises[data.id];
+  clearTimeout(p.timeout);
+  delete iframePromises[data.id];
+  if (p.iframe && p.iframe.parentNode) document.body.removeChild(p.iframe);
+  if (data.status === 'ok') p.resolve(data);
+  else p.reject(new Error(data.message || '未知错误'));
+});
 
 // ======================= UTILITIES =======================
 
@@ -1275,9 +1287,9 @@ async function runDiagnostics() {
   if (!url) return showError('请先配置 Apps Script 后端地址');
   showError('🔄 正在诊断，请稍候...');
   try {
-    const d = await jsonpCall(url, { action: 'diagnose', propertyId: propId, siteUrl: siteUrl });
-    if (d.status === 'ok') {
-      const checks = d.data.checks;
+    const resp = await iframeCall(url, { action: 'diagnose', propertyId: propId, siteUrl: siteUrl });
+    if (resp.status === 'ok') {
+      const checks = resp.data.checks;
       let msg = '';
       if (checks.ga4) msg += 'GA4: ' + (checks.ga4.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.ga4.body || checks.ga4.error));
       if (checks.gsc) msg += ' | GSC: ' + (checks.gsc.status === 'ok' ? '✅ 正常' : '❌ ' + (checks.gsc.body || checks.gsc.error));
